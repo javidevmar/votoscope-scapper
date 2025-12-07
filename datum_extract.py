@@ -10,7 +10,7 @@ import pandas as pd
 
 # Encoding and directories
 ENCODING = "cp1252"
-DEFAULT_DATUM_DIR = Path("DATUM_RAW") / "Congreso"
+DEFAULT_DATUM_DIR = Path("BRONZE") / "Congreso"
 
 
 class FieldKind(StrEnum):
