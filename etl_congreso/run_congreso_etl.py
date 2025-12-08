@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
+import json
 
 from .config import available_elections, get_election_config
 from .geography_sources import collect_geography_data
@@ -39,6 +40,11 @@ def run_etl(election_identifier: str) -> str:
         codislas_path=raw_root / "25codislas.xlsx",
         ambitos=ambitos,
     )
+    try:
+        with (Path(__file__).resolve().parent / "partido_colores.json").open("r", encoding="utf-8") as fh:
+            color_lookup = {k.upper(): v for k, v in json.load(fh).items()}
+    except FileNotFoundError:
+        color_lookup = {}
 
     silver_bundle = build_silver_bundle(
         descripcion=config.descripcion,
@@ -62,7 +68,7 @@ def run_etl(election_identifier: str) -> str:
     mesas = build_mesas(mesas_raw)
     votos_mesa = build_votos_mesa(votos_mesa_raw)
 
-    election_id = load_gold(silver_bundle, gold_rows, geography, mesas, votos_mesa)
+    election_id = load_gold(silver_bundle, gold_rows, geography, mesas, votos_mesa, color_lookup)
     logging.info("ETL completada. election_id=%s", election_id)
     return election_id
 

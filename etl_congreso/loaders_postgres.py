@@ -111,30 +111,24 @@ def _upsert_gold(
         cur.execute(
             """
             INSERT INTO gold_congreso_hemiciclo (
-                eleccion_id, partido_id, codigo_candidatura_infoelectoral,
+                eleccion_id, partido_id,
                 nivel_ambito, cod_provincia, nombre_ambito,
-                siglas_candidatura, color_hex, escanos, votos, porcentaje_voto
+                escanos, votos, porcentaje_voto
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NULLIF(%s, ''), %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (eleccion_id, nivel_ambito, cod_provincia, partido_id)
             DO UPDATE SET
                 nombre_ambito = EXCLUDED.nombre_ambito,
-                siglas_candidatura = EXCLUDED.siglas_candidatura,
-                color_hex = EXCLUDED.color_hex,
                 escanos = EXCLUDED.escanos,
                 votos = EXCLUDED.votos,
-                porcentaje_voto = EXCLUDED.porcentaje_voto,
-                codigo_candidatura_infoelectoral = EXCLUDED.codigo_candidatura_infoelectoral;
+                porcentaje_voto = EXCLUDED.porcentaje_voto;
             """,
             (
                 election_id,
                 partido_id,
-                row.cod_candidatura,
                 row.nivel_ambito,
                 row.cod_provincia,
                 row.nombre_ambito,
-                row.siglas_candidatura,
-                None,
                 row.escanos,
                 row.votos,
                 row.porcentaje_voto,
@@ -251,6 +245,7 @@ def load_gold(
     geography: GeographyData,
     mesas: Iterable[tuple[str, str, str, str, str]],
     votos_mesa: Iterable[tuple[str, str, str, str, str, str, int]],
+    color_lookup: Dict[str, str],
 ) -> str:
     """
     Inserta o actualiza los datos en tablas existentes (eleccion, partido, partido_eleccion), mesas/votos y la tabla gold_congreso_hemiciclo.
@@ -261,7 +256,7 @@ def load_gold(
             with conn.cursor() as cur:
                 election_id = _get_or_create_election(cur, bundle.election)
                 _upsert_geography(cur, geography)
-                candidatura_to_partido, siglas_map = _upsert_partidos(cur, bundle.candidaturas)
+                candidatura_to_partido, siglas_map = _upsert_partidos(cur, bundle.candidaturas, color_lookup)
                 for cod, partido_id in candidatura_to_partido.items():
                     siglas = siglas_map.get(cod, "")
                     _link_partido_eleccion(cur, election_id, partido_id, siglas)

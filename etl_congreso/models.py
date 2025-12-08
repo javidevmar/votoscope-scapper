@@ -182,7 +182,6 @@ class GoldHemicicloRow:
     cod_provincia: Optional[str]
     nombre_ambito: str
     cod_candidatura: str
-    siglas_candidatura: str
     votos: int
     escanos: int
     porcentaje_voto: Optional[float]
