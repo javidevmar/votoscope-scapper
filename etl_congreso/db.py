@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def get_database_url() -> str:
@@ -34,4 +37,3 @@ def get_connection():
         raise ImportError("psycopg no está instalado en el entorno actual") from exc
 
     return psycopg.connect(get_database_url())
-

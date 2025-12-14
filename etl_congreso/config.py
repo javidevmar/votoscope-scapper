@@ -48,6 +48,20 @@ def _build_config(
 
 
 ELECTIONS: Dict[str, ElectionConfig] = {
+    "congreso_2016_06": _build_config(
+        identifier="congreso_2016_06",
+        fecha=date(2016, 6, 26),
+        aa="16",
+        mm="06",
+        descripcion="Elecciones Generales Congreso junio 2016",
+    ),
+    "congreso_2019_04": _build_config(
+        identifier="congreso_2019_04",
+        fecha=date(2019, 4, 28),
+        aa="19",
+        mm="04",
+        descripcion="Elecciones Generales Congreso abril 2019",
+    ),
     "congreso_2019_11": _build_config(
         identifier="congreso_2019_11",
         fecha=date(2019, 11, 10),

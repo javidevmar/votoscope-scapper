@@ -22,6 +22,7 @@ Guía rápida y paso a paso para ejecutar la ETL de elecciones al Congreso inclu
    ```
 3. Lanza la ETL para cada elección soportada:
    ```bash
+   python -m etl_congreso.run_congreso_etl --election congreso_2016_06
    python -m etl_congreso.run_congreso_etl --election congreso_2019_11
    python -m etl_congreso.run_congreso_etl --election congreso_2023_07
    ```

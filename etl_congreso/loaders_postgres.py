@@ -16,28 +16,59 @@ logger = logging.getLogger(__name__)
 
 
 def _get_or_create_election(cur, row: SilverElectionRow) -> str:
+    year = row.fecha.year
+    month = row.fecha.month
     cur.execute(
         """
         SELECT id FROM eleccion
-        WHERE ano = %s AND tipo = %s AND auto_id IS NULL AND prov_id IS NULL AND muni_id IS NULL
+        WHERE ano = %s AND tipo = %s AND auto_id IS NULL AND prov_id IS NULL AND muni_id IS NULL AND mes = %s
         LIMIT 1;
         """,
-        (row.fecha.year, "Generales"),
+        (year, "Generales", month),
+    )
+    found = cur.fetchone()
+    if found:
+        logger.info("Election encontrada (Generales %s-%02d): %s", year, month, found[0])
+        return found[0]
+
+    cur.execute(
+        """
+        SELECT id FROM eleccion
+        WHERE ano = %s AND tipo = %s AND auto_id IS NULL AND prov_id IS NULL AND muni_id IS NULL AND mes = %s
+        LIMIT 1;
+        """,
+        (year, "Generales", month),
     )
     found = cur.fetchone()
     if found:
         return found[0]
 
+    # Reutiliza una elección sin mes si existe
     cur.execute(
         """
-        INSERT INTO eleccion(ano, tipo, auto_id, prov_id, muni_id)
-        VALUES (%s, %s, NULL, NULL, NULL)
+        SELECT id FROM eleccion
+        WHERE ano = %s AND tipo = %s AND auto_id IS NULL AND prov_id IS NULL AND muni_id IS NULL AND mes IS NULL
+        LIMIT 1;
+        """,
+        (year, "Generales"),
+    )
+    found = cur.fetchone()
+    if found:
+        election_id = found[0]
+        cur.execute("UPDATE eleccion SET mes = %s WHERE id = %s", (month, election_id))
+        logger.info("Election actualizada con mes %s: %s", month, election_id)
+        return election_id
+
+    cur.execute(
+        """
+        INSERT INTO eleccion(ano, mes, tipo, auto_id, prov_id, muni_id)
+        VALUES (%s, %s, %s, NULL, NULL, NULL)
         RETURNING id;
         """,
-        (row.fecha.year, "Generales"),
+        (year, month, "Generales"),
     )
     election_id = cur.fetchone()[0]
-    logger.info("Election created (Generales %s): %s", row.fecha.year, election_id)
+    logger.info("Election created (Generales %s-%02d): %s", year, month, election_id)
     return election_id
 
 
@@ -51,10 +82,13 @@ def _upsert_partidos(
     mapping: Dict[str, str] = {}
     siglas_map: Dict[str, str] = {}
     siglas_cache: Dict[str, str] = {}
+    created = 0
+    existing = 0
     for candidatura in candidaturas:
         siglas = candidatura.siglas
         if siglas in siglas_cache:
             partido_id = siglas_cache[siglas]
+            existing += 1
         else:
             cur.execute("SELECT id FROM partido WHERE siglas = %s LIMIT 1;", (siglas,))
             row = cur.fetchone()
@@ -66,6 +100,7 @@ def _upsert_partidos(
                         "UPDATE partido SET color = %s WHERE id = %s AND (color IS NULL OR color = '')",
                         (color, partido_id),
                     )
+                existing += 1
             else:
                 color = color_lookup.get(siglas.upper())
                 cur.execute(
@@ -79,10 +114,11 @@ def _upsert_partidos(
                 partido_id = cur.fetchone()[0]
                 if color:
                     cur.execute("UPDATE partido SET color = %s WHERE id = %s", (color, partido_id))
+                created += 1
             siglas_cache[siglas] = partido_id
         mapping[candidatura.codigo] = partido_id
         siglas_map[candidatura.codigo] = siglas
-    logger.info("Partidos reconciliados/creados: %d", len(siglas_cache))
+    logger.info("Partidos: nuevos=%d, existentes=%d", created, existing)
     return mapping, siglas_map
 
 
@@ -103,7 +139,8 @@ def _upsert_gold(
     gold_rows: Iterable[GoldHemicicloRow],
     candidatura_to_partido: Dict[str, str],
 ) -> None:
-    total = 0
+    inserted = 0
+    updated = 0
     for row in gold_rows:
         partido_id = candidatura_to_partido.get(row.cod_candidatura)
         if not partido_id:
@@ -121,7 +158,8 @@ def _upsert_gold(
                 nombre_ambito = EXCLUDED.nombre_ambito,
                 escanos = EXCLUDED.escanos,
                 votos = EXCLUDED.votos,
-                porcentaje_voto = EXCLUDED.porcentaje_voto;
+                porcentaje_voto = EXCLUDED.porcentaje_voto
+            RETURNING (xmax = 0) AS inserted;
             """,
             (
                 election_id,
@@ -134,42 +172,60 @@ def _upsert_gold(
                 row.porcentaje_voto,
             ),
         )
-        total += 1
-    logger.info("Registros gold hemiciclo upserted: %d", total)
+        flag = cur.fetchone()[0]
+        if flag:
+            inserted += 1
+        else:
+            updated += 1
+    logger.info("Registros gold hemiciclo: nuevos=%d, actualizados=%d", inserted, updated)
 
 
 def _upsert_provinces(cur, provinces: Iterable) -> None:
-    total = 0
+    inserted = 0
+    updated = 0
     for prov in provinces:
         cur.execute(
             """
             INSERT INTO provincia(ine_code, auto_code, nombre)
             VALUES (%s, %s, %s)
-            ON CONFLICT (ine_code) DO UPDATE SET auto_code = EXCLUDED.auto_code, nombre = EXCLUDED.nombre;
+            ON CONFLICT (ine_code) DO UPDATE SET auto_code = EXCLUDED.auto_code, nombre = EXCLUDED.nombre
+            RETURNING (xmax = 0) AS inserted;
             """,
             (prov.ine_code, prov.auto_code, prov.name),
         )
-        total += 1
-    logger.info("Provincias upserted: %d", total)
+        flag = cur.fetchone()[0]
+        if flag:
+            inserted += 1
+        else:
+            updated += 1
+    logger.info("Provincias: nuevas=%d, actualizadas=%d", inserted, updated)
 
 
 def _upsert_municipios(cur, municipios: Iterable) -> None:
-    total = 0
+    inserted = 0
+    updated = 0
     for muni in municipios:
         cur.execute(
             """
             INSERT INTO municipio(prov_code, muni_code, nombre)
             VALUES (%s, %s, %s)
-            ON CONFLICT (prov_code, muni_code) DO UPDATE SET nombre = EXCLUDED.nombre;
+            ON CONFLICT (prov_code, muni_code) DO UPDATE SET nombre = EXCLUDED.nombre
+            RETURNING (xmax = 0) AS inserted;
             """,
             (muni.prov_code, muni.muni_code, muni.name),
         )
-        total += 1
-    logger.info("Municipios upserted: %d", total)
+        flag = cur.fetchone()[0]
+        if flag:
+            inserted += 1
+        else:
+            updated += 1
+    logger.info("Municipios: nuevos=%d, actualizados=%d", inserted, updated)
 
 
 def _upsert_mesas(cur, mesas: Iterable[tuple[str, str, str, str, str]]) -> Dict[tuple[str, str, str, str, str], str]:
     mapping: Dict[tuple[str, str, str, str, str], str] = {}
+    inserted = 0
+    existing = 0
     for prov, muni, distrito, seccion, mesa in mesas:
         cur.execute(
             """
@@ -183,6 +239,7 @@ def _upsert_mesas(cur, mesas: Iterable[tuple[str, str, str, str, str]]) -> Dict[
         row = cur.fetchone()
         if row:
             mesa_id = row[0]
+            inserted += 1
         else:
             cur.execute(
                 """
@@ -194,8 +251,9 @@ def _upsert_mesas(cur, mesas: Iterable[tuple[str, str, str, str, str]]) -> Dict[
             if not result:
                 continue
             mesa_id = result[0]
+            existing += 1
         mapping[(prov, muni, distrito, seccion, mesa)] = mesa_id
-    logger.info("Mesas upserted/resolved: %d", len(mapping))
+    logger.info("Mesas: nuevas=%d, existentes=%d, total_mapeadas=%d", inserted, existing, len(mapping))
     return mapping
 
 
@@ -206,7 +264,8 @@ def _upsert_votos(
     candidatura_to_partido: Dict[str, str],
     votos: Iterable[tuple[str, str, str, str, str, str, int]],
 ) -> None:
-    total = 0
+    inserted = 0
+    updated = 0
     for prov, muni, distrito, seccion, mesa, cod_candidatura, votos_val in votos:
         mesa_id = mesa_ids.get((prov, muni, distrito, seccion, mesa))
         partido_id = candidatura_to_partido.get(cod_candidatura)
@@ -221,8 +280,11 @@ def _upsert_votos(
             """,
             (mesa_id, election_id, partido_id, votos_val),
         )
-        total += 1
-    logger.info("Votos por mesa upserted: %d", total)
+        if cur.rowcount == 1:
+            inserted += 1
+        else:
+            updated += 1
+    logger.info("Votos por mesa: nuevos=%d, actualizados=%d", inserted, updated)
 
 
 def _upsert_geography(cur, geography: GeographyData) -> None:

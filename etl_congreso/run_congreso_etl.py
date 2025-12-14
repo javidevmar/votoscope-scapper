@@ -27,14 +27,25 @@ def run_etl(election_identifier: str) -> str:
     config = get_election_config(election_identifier)
     logging.info("Iniciando ETL para %s", election_identifier)
 
+    logging.info("Leyendo ficheros InfoElectoral...")
     candidaturas = parse_candidaturas(config.files.candidaturas)
     candidatos = parse_candidatos(config.files.candidatos)
     ambitos = parse_ambitos_superiores(config.files.ambitos_superiores)
     resultados = parse_resultados_ambito_candidatura(config.files.resultados_ambito_candidatura)
     mesas_raw = parse_mesas(config.files.datos_mesas)
     votos_mesa_raw = parse_mesas_candidaturas(config.files.datos_mesas_candidaturas)
+    logging.info(
+        "Leído: candidaturas=%d, candidatos=%d, ambitos=%d, resultados=%d, mesas=%d, votos_mesa=%d",
+        len(candidaturas),
+        len(candidatos),
+        len(ambitos),
+        len(resultados),
+        len(mesas_raw),
+        len(votos_mesa_raw),
+    )
 
     raw_root = Path(__file__).resolve().parent.parent / "RAW"
+    logging.info("Construyendo geografía desde diccionarios oficiales...")
     geography = collect_geography_data(
         diccionario_path=raw_root / "diccionario25.xlsx",
         codislas_path=raw_root / "25codislas.xlsx",
@@ -58,6 +69,7 @@ def run_etl(election_identifier: str) -> str:
         ambitos=ambitos,
         resultados=resultados,
     )
+    logging.info("Transformación silver completada (bundle listo).")
     gold_rows = build_gold_hemiciclo_rows(
         ambitos=silver_bundle.ambitos,
         resultados=silver_bundle.resultados,
@@ -67,6 +79,12 @@ def run_etl(election_identifier: str) -> str:
 
     mesas = build_mesas(mesas_raw)
     votos_mesa = build_votos_mesa(votos_mesa_raw)
+    logging.info(
+        "Preparado gold: hemiciclo=%d filas, mesas=%d, votos_mesa=%d",
+        len(gold_rows),
+        len(mesas),
+        len(votos_mesa),
+    )
 
     election_id = load_gold(silver_bundle, gold_rows, geography, mesas, votos_mesa, color_lookup)
     logging.info("ETL completada. election_id=%s", election_id)
