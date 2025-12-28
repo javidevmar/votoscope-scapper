@@ -12,6 +12,7 @@ from .models import (
     MunicipioInput,
     ProvinceInput,
 )
+from .parsers_infoelectoral import parse_datos_municipios
 
 # Mapeo de códigos oficiales de comunidad autónoma (InfoElectoral/INE) a los códigos existentes en BD con nombre oficial
 OFFICIAL_TO_DB_AUTONOMY = {
@@ -150,6 +151,7 @@ def collect_geography_data(
     diccionario_path: Path,
     codislas_path: Path,
     ambitos: Iterable[AmbitoSuperiorRecord],
+    municipios_path_backup: Path | None = None,
 ) -> GeographyData:
     municipios_base, prov_to_auto = load_diccionario25(diccionario_path)
     municipios_islas, province_names_extra = load_codislas(codislas_path, prov_to_auto)
@@ -157,6 +159,26 @@ def collect_geography_data(
     municipios_map: dict[tuple[str, str], MunicipioInput] = {}
     for muni in municipios_base + municipios_islas:
         municipios_map[(muni.prov_code, muni.muni_code)] = muni
+
+    # Fallback: leer municipios del fichero oficial de la elección (05) si existe
+    if municipios_path_backup and municipios_path_backup.exists():
+        backup_munis = parse_datos_municipios(municipios_path_backup)
+        count_new = 0
+        for b in backup_munis:
+            prov, mun = b["cod_provincia"], b["cod_municipio"]
+            if (prov, mun) not in municipios_map:
+                auto = prov_to_auto.get(prov)
+                if not auto:
+                    continue
+                municipios_map[(prov, mun)] = MunicipioInput(
+                    prov_code=prov,
+                    muni_code=mun,
+                    auto_code=auto,
+                    name=b["nombre"],
+                )
+                count_new += 1
+        if count_new > 0:
+            print(f"Added {count_new} municipalities from election backup file (historic data).")
 
     provincias = build_provinces_from_ambitos(ambitos, prov_to_auto, province_names_extra)
     autonomias = {v[0]: v[1] for v in OFFICIAL_TO_DB_AUTONOMY.values()}

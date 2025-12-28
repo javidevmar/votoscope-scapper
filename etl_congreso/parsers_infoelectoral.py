@@ -205,3 +205,23 @@ def parse_mesas_candidaturas(path: Path) -> List[MesaVotoRecord]:
             )
         )
     return records
+
+
+def parse_datos_municipios(path: Path) -> List[dict[str, str]]:
+    """
+    Parsea el fichero 0502aamm.dat (datos de municipios).
+    Devuelve lista de dicts con keys: cod_provincia, cod_municipio, nombre.
+    """
+    records: list[dict[str, str]] = []
+    for line in _read_lines(path):
+        # Basado en análisis debug:
+        # prov: 12-13 (1-based)
+        # muni: 14-16 (1-based)
+        # nombre: 19-end (approx)
+        rec = {
+            "cod_provincia": _slice(line, 12, 13).strip(),
+            "cod_municipio": _slice(line, 14, 16).strip(),
+            "nombre": _slice(line, 19, 118).strip(),  # Tomamos ancho generoso
+        }
+        records.append(rec)
+    return records

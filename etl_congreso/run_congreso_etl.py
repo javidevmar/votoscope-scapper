@@ -50,6 +50,7 @@ def run_etl(election_identifier: str) -> str:
         diccionario_path=raw_root / "diccionario25.xlsx",
         codislas_path=raw_root / "25codislas.xlsx",
         ambitos=ambitos,
+        municipios_path_backup=config.files.datos_municipios,
     )
     try:
         with (Path(__file__).resolve().parent / "partido_colores.json").open("r", encoding="utf-8") as fh:
