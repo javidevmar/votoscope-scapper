@@ -4,6 +4,8 @@ import argparse
 import logging
 from pathlib import Path
 import json
+import os
+from dotenv import load_dotenv
 
 from .config import available_elections, get_election_config
 from .geography_sources import collect_geography_data
@@ -17,7 +19,7 @@ from .parsers_infoelectoral import (
     parse_resultados_ambito_candidatura,
 )
 from .transformers_congreso import build_gold_hemiciclo_rows, build_silver_bundle
-
+from . import env_settings
 
 def run_etl(election_identifier: str) -> str:
     """
@@ -57,6 +59,11 @@ def run_etl(election_identifier: str) -> str:
             color_lookup = {k.upper(): v for k, v in json.load(fh).items()}
     except FileNotFoundError:
         color_lookup = {}
+        
+    ###
+    # TODO: 
+    ###
+    # - Create function which semantically links a party name with root party
 
     silver_bundle = build_silver_bundle(
         descripcion=config.descripcion,
@@ -93,17 +100,18 @@ def run_etl(election_identifier: str) -> str:
 
 
 def main() -> None:
+    load_dotenv()
     parser = argparse.ArgumentParser(
-        description="Carga en Postgres los datos de elecciones al Congreso (InfoElectoral)."
+        description="Loads congressional election data from InfoElectoral into Postgres."
     )
     parser.add_argument(
         "--election",
         required=True,
         choices=available_elections(),
-        help="Identificador interno de elección, por ejemplo congreso_2019_11",
+        help="Internal election identifier, e.g. congreso_2019_11",
     )
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    logging.basicConfig(level=env_settings.LOGGING_LEVEL, format=env_settings.LOGGING_FORMAT)
     run_etl(args.election)
 
 
