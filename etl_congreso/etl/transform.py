@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import date
 from typing import Dict, Iterable, List, Tuple
 
-from .constants import CODIGO_TOTAL
-from .models import (
+from ..config.constants import CODIGO_TOTAL
+from ..domain.models import (
     AmbitoSuperiorRecord,
     CandidatoRecord,
     CandidaturaRecord,

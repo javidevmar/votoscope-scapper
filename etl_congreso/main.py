@@ -7,10 +7,10 @@ import json
 import os
 from dotenv import load_dotenv
 
-from .config import available_elections, get_election_config
-from .geography_sources import collect_geography_data
-from .loaders_postgres import load_gold
-from .parsers_infoelectoral import (
+from .config.elections import available_elections, get_election_config
+from .etl.geo import collect_geography_data
+from .etl.load import load_gold
+from .etl.extract import (
     parse_ambitos_superiores,
     parse_candidatos,
     parse_candidaturas,
@@ -18,8 +18,8 @@ from .parsers_infoelectoral import (
     parse_mesas_candidaturas,
     parse_resultados_ambito_candidatura,
 )
-from .transformers_congreso import build_gold_hemiciclo_rows, build_silver_bundle
-from . import env_settings
+from .etl.transform import build_gold_hemiciclo_rows, build_silver_bundle
+from .config import settings
 
 def run_etl(election_identifier: str) -> str:
     """
@@ -55,7 +55,7 @@ def run_etl(election_identifier: str) -> str:
         municipios_path_backup=config.files.datos_municipios,
     )
     try:
-        with (Path(__file__).resolve().parent / "partido_colores.json").open("r", encoding="utf-8") as fh:
+        with (Path(__file__).resolve().parent / "resources" / "partido_colores.json").open("r", encoding="utf-8") as fh:
             color_lookup = {k.upper(): v for k, v in json.load(fh).items()}
     except FileNotFoundError:
         color_lookup = {}
@@ -83,7 +83,7 @@ def run_etl(election_identifier: str) -> str:
         resultados=silver_bundle.resultados,
         candidaturas=silver_bundle.candidaturas,
     )
-    from .transformers_congreso import build_mesas, build_votos_mesa
+    from .etl.transform import build_mesas, build_votos_mesa
 
     mesas = build_mesas(mesas_raw)
     votos_mesa = build_votos_mesa(votos_mesa_raw)
@@ -111,7 +111,7 @@ def main() -> None:
         help="Internal election identifier, e.g. congreso_2019_11",
     )
     args = parser.parse_args()
-    logging.basicConfig(level=env_settings.LOGGING_LEVEL, format=env_settings.LOGGING_FORMAT)
+    logging.basicConfig(level=settings.LOGGING_LEVEL, format=settings.LOGGING_FORMAT)
     run_etl(args.election)
 
 

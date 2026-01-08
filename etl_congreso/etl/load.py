@@ -7,15 +7,15 @@ from sqlalchemy import select, and_, func, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from .db import create_session
-from .models import (
+from ..config.db import create_session
+from ..domain.models import (
     GeographyData,
     GoldHemicicloRow,
     SilverBundle,
     SilverCandidaturaRow,
     SilverElectionRow,
 )
-from .models_sqlalchemy import (
+from ..domain.orm import (
     Eleccion,
     Partido,
     PartidoEleccion,

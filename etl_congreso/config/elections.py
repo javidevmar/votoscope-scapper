@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Dict
 
 from .constants import TIPO_ELECCION_CONGRESO
-from .models import ElectionConfig, ElectionFiles
+from ..domain.models import ElectionConfig, ElectionFiles
 
 
-BASE_RAW_DIR = Path(__file__).resolve().parent.parent / "RAW" / "Congreso"
+BASE_RAW_DIR = Path(__file__).resolve().parent.parent.parent / "RAW" / "Congreso"
 
 
 def _dat_path(folder: str, aa: str, mm: str, prefix: str) -> Path:

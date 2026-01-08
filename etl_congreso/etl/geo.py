@@ -5,14 +5,14 @@ from typing import Dict, Iterable, List, Tuple
 
 import pandas as pd
 
-from .constants import TIPO_ELECCION_CONGRESO
-from .models import (
+from ..config.constants import TIPO_ELECCION_CONGRESO
+from ..domain.models import (
     AmbitoSuperiorRecord,
     GeographyData,
     MunicipioInput,
     ProvinceInput,
 )
-from .parsers_infoelectoral import parse_datos_municipios
+from .extract import parse_datos_municipios
 
 # Mapeo de códigos oficiales de comunidad autónoma (InfoElectoral/INE) a los códigos existentes en BD con nombre oficial
 OFFICIAL_TO_DB_AUTONOMY = {
