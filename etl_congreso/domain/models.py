@@ -12,10 +12,10 @@ class ElectionFiles:
     candidatos: Path
     ambitos_superiores: Path
     resultados_ambito_candidatura: Path
-    datos_municipios: Optional[Path] = None
-    datos_municipios_candidaturas: Optional[Path] = None
-    datos_mesas: Optional[Path] = None
-    datos_mesas_candidaturas: Optional[Path] = None
+    datos_municipios: Path
+    datos_municipios_candidaturas: Path
+    datos_mesas: Path
+    datos_mesas_candidaturas: Path
 
 
 @dataclass(slots=True)

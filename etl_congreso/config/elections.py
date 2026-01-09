@@ -47,29 +47,29 @@ def _build_config(
     )
 
 
-ELECTIONS: Dict[str, ElectionConfig] = {
-    "congreso_2016_06": _build_config(
+CONGRESS_ELECTIONS: Dict[str, ElectionConfig] = {
+    "2016_06": _build_config(
         identifier="congreso_2016_06",
         fecha=date(2016, 6, 26),
         aa="16",
         mm="06",
         descripcion="Elecciones Generales Congreso junio 2016",
     ),
-    "congreso_2019_04": _build_config(
+    "2019_04": _build_config(
         identifier="congreso_2019_04",
         fecha=date(2019, 4, 28),
         aa="19",
         mm="04",
         descripcion="Elecciones Generales Congreso abril 2019",
     ),
-    "congreso_2019_11": _build_config(
+    "2019_11": _build_config(
         identifier="congreso_2019_11",
         fecha=date(2019, 11, 10),
         aa="19",
         mm="11",
         descripcion="Elecciones Generales Congreso noviembre 2019",
     ),
-    "congreso_2023_07": _build_config(
+    "2023_07": _build_config(
         identifier="congreso_2023_07",
         fecha=date(2023, 7, 23),
         aa="23",
@@ -79,15 +79,22 @@ ELECTIONS: Dict[str, ElectionConfig] = {
 }
 
 
-def get_election_config(identifier: str) -> ElectionConfig:
+def get_election_config(type: str, date: str| None) -> list[ElectionConfig]:
     """
-    Obtiene la configuración de una elección soportada.
+    Gets election configs
     """
+    
+    elections = {
+        "congreso": CONGRESS_ELECTIONS
+    }
+    
     try:
-        return ELECTIONS[identifier]
+        selected_elections = elections[type]
+        if date:
+            return [selected_elections[date]]
+        else:
+            return list(selected_elections.values())
+            
     except KeyError as exc:
-        raise KeyError(f"Elección no soportada: {identifier}") from exc
+        raise KeyError(f"Election not suported: type: {type}, date: {date}") from exc
 
-
-def available_elections() -> list[str]:
-    return sorted(ELECTIONS)

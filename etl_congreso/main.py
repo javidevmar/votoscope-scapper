@@ -1,4 +1,5 @@
-from __future__ import annotations
+from etl_congreso.domain.models import ElectionConfig
+from etl_congreso.config.elections import get_election_config
 
 import argparse
 import logging
@@ -7,7 +8,6 @@ import json
 import os
 from dotenv import load_dotenv
 
-from .config.elections import available_elections, get_election_config
 from .etl.geo import collect_geography_data
 from .etl.load import load_gold
 from .etl.extract import (
@@ -21,21 +21,20 @@ from .etl.extract import (
 from .etl.transform import build_gold_hemiciclo_rows, build_silver_bundle
 from .config import settings
 
-def run_etl(election_identifier: str) -> str:
+def run_etl(election_config: ElectionConfig) -> str:
     """
     Ejecuta la ETL completa para una elección concreta.
     Devuelve el ID de la elección en la base de datos.
     """
-    config = get_election_config(election_identifier)
-    logging.info("Iniciando ETL para %s", election_identifier)
+    logging.info("Iniciando ETL para %s", election_config.identifier)
 
     logging.info("Leyendo ficheros InfoElectoral...")
-    candidaturas = parse_candidaturas(config.files.candidaturas)
-    candidatos = parse_candidatos(config.files.candidatos)
-    ambitos = parse_ambitos_superiores(config.files.ambitos_superiores)
-    resultados = parse_resultados_ambito_candidatura(config.files.resultados_ambito_candidatura)
-    mesas_raw = parse_mesas(config.files.datos_mesas)
-    votos_mesa_raw = parse_mesas_candidaturas(config.files.datos_mesas_candidaturas)
+    candidaturas = parse_candidaturas(election_config.files.candidaturas)
+    candidatos = parse_candidatos(election_config.files.candidatos)
+    ambitos = parse_ambitos_superiores(election_config.files.ambitos_superiores)
+    resultados = parse_resultados_ambito_candidatura(election_config.files.resultados_ambito_candidatura)
+    mesas_raw = parse_mesas(election_config.files.datos_mesas)
+    votos_mesa_raw = parse_mesas_candidaturas(election_config.files.datos_mesas_candidaturas)
     logging.info(
         "Leído: candidaturas=%d, candidatos=%d, ambitos=%d, resultados=%d, mesas=%d, votos_mesa=%d",
         len(candidaturas),
@@ -52,7 +51,7 @@ def run_etl(election_identifier: str) -> str:
         diccionario_path=raw_root / "diccionario25.xlsx",
         codislas_path=raw_root / "25codislas.xlsx",
         ambitos=ambitos,
-        municipios_path_backup=config.files.datos_municipios,
+        municipios_path_backup=election_config.files.datos_municipios,
     )
     try:
         with (Path(__file__).resolve().parent / "resources" / "partido_colores.json").open("r", encoding="utf-8") as fh:
@@ -66,12 +65,12 @@ def run_etl(election_identifier: str) -> str:
     # - Create function which semantically links a party name with root party
 
     silver_bundle = build_silver_bundle(
-        descripcion=config.descripcion,
-        tipo_eleccion=config.tipo_eleccion,
-        fecha=config.fecha,
-        aa=config.aa,
-        mm=config.mm,
-        vuelta=config.vuelta,
+        descripcion=election_config.descripcion,
+        tipo_eleccion=election_config.tipo_eleccion,
+        fecha=election_config.fecha,
+        aa=election_config.aa,
+        mm=election_config.mm,
+        vuelta=election_config.vuelta,
         candidaturas=candidaturas,
         candidatos=candidatos,
         ambitos=ambitos,
@@ -102,17 +101,20 @@ def run_etl(election_identifier: str) -> str:
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(
-        description="Loads congressional election data from InfoElectoral into Postgres."
+        description="Loads congressional election data from different sources into Postgres."
     )
-    parser.add_argument(
-        "--election",
-        required=True,
-        choices=available_elections(),
-        help="Internal election identifier, e.g. congreso_2019_11",
-    )
+    parser.add_argument("--type", 
+                        required=True,
+                        choices=['congreso'],
+                        help="Specifies an election type")
+    parser.add_argument("--date",
+                        help="For loading specific election data, date format: YYYY_MM")
     args = parser.parse_args()
     logging.basicConfig(level=settings.LOGGING_LEVEL, format=settings.LOGGING_FORMAT)
-    run_etl(args.election)
+    election_configs= get_election_config(args.type, args.date)
+    
+    for election_config in election_configs:
+        run_etl(election_config)
 
 
 if __name__ == "__main__":
