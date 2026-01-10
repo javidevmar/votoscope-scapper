@@ -14,7 +14,7 @@ from ..domain.models import (
 )
 from .extract import parse_datos_municipios
 
-# Mapeo de códigos oficiales de comunidad autónoma (InfoElectoral/INE) a los códigos existentes en BD con nombre oficial
+# Map official autonomous community codes (InfoElectoral/INE) to existing DB codes with official name
 OFFICIAL_TO_DB_AUTONOMY = {
     "01": ("01", "Andalucía"),
     "02": ("02", "Aragón"),
@@ -44,8 +44,8 @@ def _translate_auto_code(official_code: str) -> str:
 
 def load_diccionario25(path: Path) -> Tuple[List[MunicipioInput], Dict[str, str]]:
     """
-    Lee diccionario25.xlsx para obtener cod_auto oficial, provincia, municipio y nombre.
-    Devuelve lista de municipios y un mapping prov->auto_code(BD).
+    Reads diccionario25.xlsx to obtain official auto_code, province, municipality, and name.
+    Returns list of municipalities and a prov->auto_code(DB) mapping.
     """
     df_raw = pd.read_excel(path, sheet_name="dic25", header=None)
     header = df_raw.iloc[1]
@@ -76,14 +76,14 @@ def load_diccionario25(path: Path) -> Tuple[List[MunicipioInput], Dict[str, str]
 
 def load_codislas(path: Path, prov_to_auto: Dict[str, str]) -> Tuple[List[MunicipioInput], Dict[str, str]]:
     """
-    Lee 25codislas.xlsx (hojas 07/35/38) para completar municipios en islas y nombres de provincia.
-    Devuelve lista de municipios (pueden sobrescribir) y nombres de provincia.
+    Reads 25codislas.xlsx (sheets 07/35/38) to complete municipalities in islands and province names.
+    Returns list of municipalities (can overwrite) and province names.
     """
     municipios: list[MunicipioInput] = []
     province_names: dict[str, str] = {}
     for sheet in ("07", "35", "38"):
         df_raw = pd.read_excel(path, sheet_name=sheet, header=None)
-        # Fila 1: nombre de la provincia en el idioma oficial
+        # Row 1: province name in official language
         province_label = str(df_raw.iloc[1, 0]).strip()
         header = df_raw.iloc[2]
         data = df_raw.iloc[3:]
@@ -106,7 +106,7 @@ def load_codislas(path: Path, prov_to_auto: Dict[str, str]) -> Tuple[List[Munici
                     name=nombre,
                 )
             )
-            # Guardar nombre de provincia para alias si no existe
+            # Save province name for alias if not exists
             if prov not in province_names:
                 province_names[prov] = province_label
     return municipios, province_names
@@ -136,7 +136,7 @@ def build_provinces_from_ambitos(
             auto_code=auto,
             name=name,
         )
-    # Provincias de islas que quizá no aparezcan en 0702
+    # Island provinces that might not appear in 0702
     for prov, names in province_names_extra.items():
         if prov in provinces:
             continue
@@ -160,7 +160,7 @@ def collect_geography_data(
     for muni in municipios_base + municipios_islas:
         municipios_map[(muni.prov_code, muni.muni_code)] = muni
 
-    # Fallback: leer municipios del fichero oficial de la elección (05) si existe
+    # Fallback: read municipalities from official election file (05) if exists
     if municipios_path_backup and municipios_path_backup.exists():
         backup_munis = parse_datos_municipios(municipios_path_backup)
         count_new = 0

@@ -34,7 +34,7 @@ def build_silver_bundle(
     resultados: Iterable[ResultadoAmbitoCandidaturaRecord],
 ) -> SilverBundle:
     """
-    Convierte los registros parseados en entidades listas para la carga Silver.
+    Converts parsed records into Silver load ready entities.
     """
     election = SilverElectionRow(
         tipo_eleccion=tipo_eleccion,
@@ -128,7 +128,7 @@ def build_gold_hemiciclo_rows(
     candidaturas: Iterable[SilverCandidaturaRow],
 ) -> List[GoldHemicicloRow]:
     """
-    Genera los registros de la tabla gold de hemiciclo (nacional y provincial).
+    Generates gold hemiciclo table records (national and provincial).
     """
     ambito_map: Dict[tuple[int, str, str, str], SilverAmbitoRow] = {
         _ambito_key(amb): amb for amb in ambitos
@@ -143,7 +143,7 @@ def build_gold_hemiciclo_rows(
         key = (res.vuelta, res.cod_ccaa, res.cod_provincia, res.cod_distrito)
         resultados_por_clave.setdefault(key, []).append(res)
 
-    # Hemiciclo nacional
+    # National hemicycle
     nacional_key = (1, CODIGO_TOTAL, CODIGO_TOTAL, "9")
     if nacional_key in ambito_map:
         ambito_nacional = ambito_map[nacional_key]
@@ -169,7 +169,7 @@ def build_gold_hemiciclo_rows(
                 )
             )
 
-    # Hemiciclo provincial (totales de provincia cod_distrito=9)
+    # Provincial hemicycle (province totals cod_distrito=9)
     for ambito in ambito_map.values():
         if ambito.cod_provincia == CODIGO_TOTAL or ambito.cod_distrito != "9":
             continue
@@ -203,12 +203,12 @@ def build_mesas(
     mesas_raw: Iterable[MesaRecord],
 ) -> List[tuple[str, str, str, str, str]]:
     """
-    Devuelve tuplas (prov, muni, distrito, seccion, mesa) únicas para carga.
+    Returns unique (prov, muni, distro, section, table) tuples for loading.
     """
     seen: set[tuple[str, str, str, str, str]] = set()
     mesas: list[tuple[str, str, str, str, str]] = []
     for mesa in mesas_raw:
-        # Filtrar totales especiales (99) o municipios 999 que no representan mesas físicas
+        # Filter special totals (99) or municipalities 999 that do not represent physical tables
         if mesa.cod_provincia == CODIGO_TOTAL or mesa.cod_municipio in ("999", "000"):
             continue
         key = (mesa.cod_provincia, mesa.cod_municipio, mesa.cod_distrito, mesa.cod_seccion, mesa.cod_mesa)
@@ -223,7 +223,7 @@ def build_votos_mesa(
     mesa_votos: Iterable[MesaVotoRecord],
 ) -> List[tuple[str, str, str, str, str, str, int]]:
     """
-    Devuelve tuplas (prov, muni, distrito, seccion, mesa, cod_candidatura, votos).
+    Returns (prov, muni, distro, section, table, candidacy_code, votes) tuples.
     """
     votos_list: list[tuple[str, str, str, str, str, str, int]] = []
     for voto in mesa_votos:

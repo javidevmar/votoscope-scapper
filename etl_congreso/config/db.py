@@ -11,8 +11,8 @@ load_dotenv()
 
 def get_database_url() -> str:
     """
-    Devuelve la cadena de conexión de Postgres desde variables de entorno,
-    adaptada para SQLAlchemy (postgresql+psycopg://).
+    Returns Postgres connection string from env vars,
+    adapted for SQLAlchemy (postgresql+psycopg://).
     """
     candidates = [
         "DATABASE_URL",
@@ -29,22 +29,22 @@ def get_database_url() -> str:
     
     if not url:
         raise RuntimeError(
-            "No se encontró cadena de conexión de base de datos. "
-            "Define DATABASE_URL o SUPABASE_DB_URL."
+            "Database connection string not found. "
+            "Define DATABASE_URL or SUPABASE_DB_URL."
         )
 
-    # Adaptar para SQLAlchemy si es necesario
+    # Adapt for SQLAlchemy if necessary
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg://", 1)
     elif url.startswith("postgresql://") and "+psycopg" not in url:
-         # Aseguramos usar el driver moderno si no se especifica otro
+         # Ensure modern driver usage if none specified
          if "+psycopg2" not in url:
              url = url.replace("postgresql://", "postgresql+psycopg://", 1)
 
     return url
 
 
-# Singleton del engine para no crearlo múltiples veces
+# Engine singleton to avoid creating multiple instances
 _engine = None
 
 def get_engine():
@@ -56,7 +56,7 @@ def get_engine():
 
 def get_session() -> Generator[Session, None, None]:
     """
-    Generador de sesiones para usar con context managers o dependencias.
+    Session generator for use with context managers or dependencies.
     """
     engine = get_engine()
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -66,7 +66,7 @@ def get_session() -> Generator[Session, None, None]:
     finally:
         session.close()
 
-# Helper para uso directo sin generador si se prefiere
+# Helper for direct use without generator if preferred
 def create_session() -> Session:
     engine = get_engine()
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

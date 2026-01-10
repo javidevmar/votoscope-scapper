@@ -24,11 +24,11 @@ from ..domain.orm import (
     Autonomia,
     Provincia,
     Municipio,
-    # Importamos Gold si en el futuro decidimos gestionarlo desde aquí, 
-    # pero por ahora usaremos SQL crudo para Gold o asumiremos que la tabla existe 
-    # y la atacamos via SQL o definimos un modelo 'mirror' sin gestionarlo con Alembic.
-    # Como definimos que el Front es dueño de Gold, usaremos SQL crudo para insertar en Gold
-    # para no acoplar los modelos ORM de Silver a Gold.
+    # Import Gold if in the future we decide to manage it from here,
+    # but for now we use raw SQL for Gold or assume the table exists
+    # and access it via SQL or define a 'mirror' model without managing it with Alembic.
+    # Since we defined that Front owns Gold, we use raw SQL to insert into Gold
+    # to avoid coupling Silver ORM models to Gold.
 )
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def _get_or_create_election(session: Session, row: SilverElectionRow) -> str:
     year = row.fecha.year
     month = row.fecha.month
     
-    # 1. Buscar coincidencia exacta
+    # 1. Look for exact match
     stmt = select(Eleccion).where(
         and_(
             Eleccion.ano == year,
@@ -55,7 +55,7 @@ def _get_or_create_election(session: Session, row: SilverElectionRow) -> str:
         logger.info("Election encontrada (Generales %s-%02d): %s", year, month, election.id)
         return str(election.id)
 
-    # 2. Crear nueva elección
+    # 2. Create new election
     new_election = Eleccion(
         ano=year,
         mes=month,
@@ -65,7 +65,7 @@ def _get_or_create_election(session: Session, row: SilverElectionRow) -> str:
         muni_id=None
     )
     session.add(new_election)
-    session.flush() # Para obtener el ID generado
+    session.flush() # To obtain generated ID
     
     logger.info("Election created (Generales %s-%02d): %s", year, month, new_election.id)
     return str(new_election.id)
@@ -75,13 +75,13 @@ def _upsert_partidos(
     session: Session, candidaturas: Iterable[SilverCandidaturaRow], color_lookup: Dict[str, str]
 ) -> Tuple[Dict[str, str], Dict[str, str]]:
     """
-    Devuelve (codigo_candidatura -> partido_id, codigo_candidatura -> siglas).
+    Returns (candidacy_code -> party_id, candidacy_code -> acronyms).
     """
     mapping: Dict[str, str] = {}
     siglas_map: Dict[str, str] = {}
     
-    # Cache local de siglas -> partido_id para evitar queries repetidas en bucle
-    # Primero cargamos todos los partidos existentes para tener la cache caliente
+    # Local cache of acronyms -> party_id to avoid repeated loops queries
+    # First load all existing parties to warm up the cache
     existing_partidos = session.execute(select(Partido.siglas, Partido.id)).all()
     siglas_cache = {row.siglas: str(row.id) for row in existing_partidos if row.siglas}
 
@@ -94,7 +94,7 @@ def _upsert_partidos(
         color = color_lookup.get(siglas.upper())
 
         if partido_id:
-            # Si existe, actualizamos color si hace falta mediante UPDATE directo
+            # If exists, update color if needed via direct UPDATE
             if color:
                 from sqlalchemy import update
                 stmt = (
@@ -110,23 +110,23 @@ def _upsert_partidos(
                 session.execute(stmt)
                 updated += 1
         else:
-            # Insertar nuevo
-            # Usamos pg_insert para manejar concurrencia si hubiera (on conflict do nothing)
-            # aunque aquí confiamos en nuestra cache local.
+            # Insert new
+            # Use pg_insert to handle concurrency if any (on conflict do nothing)
+            # although here we trust our local cache.
             stmt = pg_insert(Partido).values(
                 nombre=candidatura.nombre_largo or siglas,
                 siglas=siglas,
                 color=color
             ).returning(Partido.id)
             
-            # En caso de race condition donde otro proceso lo insertó justo ahora
-            stmt = stmt.on_conflict_do_nothing(index_elements=['id']) # ID es UUID, esto no pasará por ID.
-            # Realmente el conflicto sería por SIGLAS si tuviéramos constraint unique en siglas (que no tenemos en el modelo estricto, pero asumimos lógica de negocio)
-            # Como no hay unique constraint en siglas en el DDL, hacemos insert normal.
-            # Mejor: Buscamos de nuevo por si acaso, o insertamos.
+            # In case of race condition where another process inserted right now
+            stmt = stmt.on_conflict_do_nothing(index_elements=['id']) # ID is UUID, this won't happen by ID.
+            # Actually the conflict would be by ACRONYM if we had unique constraint on acronym (which we don't in strict model, but assume business logic)
+            # As there is no unique constraint on acronyms in DDL, we do normal insert.
+            # Better: Search again just in case, or insert.
             
-            # Nota: El modelo Silver actual NO tiene unique en siglas, pero la lógica de negocio asume unicidad.
-            # Vamos a insertar.
+            # Note: Current Silver model does NOT have unique on acronyms, but business logic assumes uniqueness.
+            # We will insert.
             new_partido = Partido(
                 nombre=candidatura.nombre_largo or siglas,
                 siglas=siglas,
@@ -141,7 +141,7 @@ def _upsert_partidos(
         mapping[candidatura.codigo] = partido_id
         siglas_map[candidatura.codigo] = siglas
         
-    logger.info("Partidos: nuevos=%d, actualizados/revisados=%d", created, updated)
+    logger.info("Parties: new=%d, updated/reviewed=%d", created, updated)
     return mapping, siglas_map
 
 
@@ -162,9 +162,9 @@ def _upsert_gold(
     gold_rows: Iterable[GoldHemicicloRow],
     candidatura_to_partido: Dict[str, str],
 ) -> None:
-    # Gold es un esquema especial gestionado por el Front. 
-    # Usaremos SQL crudo para no tener que definir modelos ORM para Gold aquí
-    # y evitar conflictos con Alembic.
+    # Gold is a special schema owned by Front. 
+    # We use raw SQL to avoid defining ORM models for Gold here
+    # and avoid conflicts with Alembic.
     
     inserted = 0
     updated = 0
@@ -207,7 +207,7 @@ def _upsert_gold(
         else:
             updated += 1
             
-    logger.info("Registros gold hemiciclo: nuevos=%d, actualizados=%d", inserted, updated)
+    logger.info("Gold hemiciclo records: new=%d, updated=%d", inserted, updated)
 
 
 def _upsert_geography(session: Session, geography: GeographyData) -> None:
@@ -246,34 +246,34 @@ def _upsert_geography(session: Session, geography: GeographyData) -> None:
         )
         session.execute(stmt)
     
-    logger.info("Geografía actualizada.")
+    logger.info("Geography updated.")
 
 
 def _upsert_mesas(session: Session, mesas: Iterable[Tuple[str, str, str, str, str]]) -> Dict[Tuple[str, str, str, str, str], str]:
     mapping: Dict[Tuple[str, str, str, str, str], str] = {}
     
-    # Pre-cargar mesas existentes para esta provincia/municipio podría ser optimización,
-    # pero como son muchas, mejor upsert bajo demanda o batch.
-    # Dado que SQLAlchemy core es rápido, haremos batches si es necesario.
-    # Para simplificar mantengo el loop, pero optimizable.
+    # Pre-load existing tables for this province/municipality could be optimization,
+    # but since they are many, better upsert on demand or batch.
+    # Since SQLAlchemy core is fast, we will do batches if necessary.
+    # To simplify I keep the loop, but optimizable.
     
-    # Estrategia: 
-    # 1. Intentar buscar ID.
-    # 2. Si no existe, insertar.
+    # Strategy: 
+    # 1. Try to search ID.
+    # 2. If not exists, insert.
     
-    # Mejor: Hacer un SELECT masivo de los IDs que necesitamos?
-    # Como el input es iterable, procesamos uno a uno o en bloques.
+    # Better: Do a massive SELECT of IDs we need?
+    # Since input is iterable, process one by one or in blocks.
     
     cnt_inserted = 0
     cnt_existing = 0
     
     for prov, muni, distrito, seccion, mesa_cod in mesas:
-        # Clave natural compuesta
+        # Composite natural key
         key = (prov, muni, distrito, seccion, mesa_cod)
         
-        # Primero intentamos insert on conflict do nothing y retornar ID
-        # Nota: Returning ID en on_conflict_do_nothing a veces no devuelve nada en Postgres si hay conflicto.
-        # Por eso el patrón suele ser: CTE o Select previo.
+        # First try insert on conflict do nothing and return ID
+        # Note: Returning ID in on_conflict_do_nothing sometimes returns nothing in Postgres if conflict.
+        # That's why the pattern is usually: CTE or previous Select.
         
         stmt_select = select(Mesa.id).where(and_(
             Mesa.cod_prov == prov,
@@ -302,14 +302,14 @@ def _upsert_mesas(session: Session, mesas: Iterable[Tuple[str, str, str, str, st
                 mapping[key] = str(new_mesa.id)
                 cnt_inserted += 1
             except Exception:
-                # Si fallara por race condition (otro proceso insertó), hacemos rollback parcial savepoint
-                # y leemos. (Complejidad extra, asumimos single worker por ahora).
+                # If failed due to race condition (another process inserted), partial rollback savepoint
+                # and read. (Extra complexity, assuming single worker for now).
                 session.rollback()
                 existing_id = session.execute(stmt_select).scalar_one()
                 mapping[key] = str(existing_id)
                 cnt_existing += 1
                 
-    logger.info("Mesas: nuevas=%d, existentes=%d", cnt_inserted, cnt_existing)
+    logger.info("Mesas: new=%d, existing=%d", cnt_inserted, cnt_existing)
     return mapping
 
 
@@ -339,8 +339,8 @@ def _upsert_votos(
     if not batch_values:
         return
 
-    # Ejecutar upsert masivo
-    # Chunking si fuera muy grande (ej > 10000)
+    # Execute massive upsert
+    # Chunking if very large (e.g. > 10000)
     chunk_size = 5000
     for i in range(0, len(batch_values), chunk_size):
         chunk = batch_values[i:i + chunk_size]
@@ -351,10 +351,11 @@ def _upsert_votos(
         )
         session.execute(stmt)
         
-    logger.info("Votos procesados: %d registros", len(batch_values))
+    logger.info("Votes processed: %d records", len(batch_values))
 
 
 def load_gold(
+    session: Session,
     bundle: SilverBundle,
     gold_rows: Iterable[GoldHemicicloRow],
     geography: GeographyData,
@@ -363,44 +364,36 @@ def load_gold(
     color_lookup: Dict[str, str],
 ) -> str:
     """
-    Orquestador de carga usando SQLAlchemy Session.
+    Load orchestrator using an existing SQLAlchemy Session.
     """
-    session = create_session()
-    try:
-        # 1. Elección
-        election_id = _get_or_create_election(session, bundle.election)
         
-        # 2. Geografía
-        _upsert_geography(session, geography)
+    # 1. Election
+    election_id = _get_or_create_election(session, bundle.election)
         
-        # 3. Partidos
-        candidatura_to_partido, siglas_map = _upsert_partidos(session, bundle.candidaturas, color_lookup)
+    # 2. Geography
+    _upsert_geography(session, geography)
         
-        # 4. Enlace Partido-Elección
-        for cod, partido_id in candidatura_to_partido.items():
-            siglas = siglas_map.get(cod, "")
-            _link_partido_eleccion(session, election_id, partido_id, siglas)
+    # 3. Parties
+    candidatura_to_partido, siglas_map = _upsert_partidos(session, bundle.candidaturas, color_lookup)
+        
+    # 4. Party-Election Link
+    for cod, partido_id in candidatura_to_partido.items():
+        siglas = siglas_map.get(cod, "")
+        _link_partido_eleccion(session, election_id, partido_id, siglas)
             
-        # 5. Mesas
-        # Necesitamos convertir el iterable de mesas a lista si vamos a iterar varias veces o si es generator
-        # Asumimos que mesas es lista o re-iterable. Si es generador de un solo uso, cuidado.
-        # En transformers_congreso suele ser generador. Lo consumimos a lista si no lo es.
-        mesas_list = list(mesas) if not isinstance(mesas, list) else mesas
-        mesa_ids = _upsert_mesas(session, mesas_list)
+    # 5. Mesas
+    # We need to convert mesas iterable to list if iterating multiple times or if generator
+    # Assume mesas is list or re-iterable. If single-use generator, careful.
+    # In transformers_congreso usually generator. Consume to list if not.
+    mesas_list = list(mesas) if not isinstance(mesas, list) else mesas
+    mesa_ids = _upsert_mesas(session, mesas_list)
         
-        # 6. Votos
-        _upsert_votos(session, election_id, mesa_ids, candidatura_to_partido, votos_mesa)
+    # 6. Votes
+    _upsert_votos(session, election_id, mesa_ids, candidatura_to_partido, votos_mesa)
         
-        # 7. Gold (Hemiciclo)
-        _upsert_gold(session, election_id, gold_rows, candidatura_to_partido)
+    # 7. Gold (Hemiciclo)
+    _upsert_gold(session, election_id, gold_rows, candidatura_to_partido)
         
-        session.commit()
-        logger.info("Carga completada exitosamente. Election ID: %s", election_id)
-        return election_id
-        
-    except Exception as e:
-        session.rollback()
-        logger.error("Error durante la carga, rollback ejecutado: %s", e)
-        raise e
-    finally:
-        session.close()
+    session.commit()
+    logger.info("Load successfully completed. Election ID: %s", election_id)
+    return election_id

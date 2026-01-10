@@ -16,7 +16,7 @@ from ..domain.models import (
 
 
 def _slice(line: str, start: int, end: int) -> str:
-    """Extrae un campo de posiciones 1-indexed [start, end]."""
+    """Extracts a field from 1-indexed positions [start, end]."""
     return line[start - 1 : end]
 
 
@@ -51,7 +51,7 @@ def _read_lines(path: Path) -> Iterable[str]:
 
 def parse_candidaturas(path: Path) -> List[CandidaturaRecord]:
     """
-    Parsea el fichero 0302aamm.dat de candidaturas.
+    Parses the 0302aamm.dat candidaturas file.
     """
     records: list[CandidaturaRecord] = []
     for line in _read_lines(path):
@@ -73,7 +73,7 @@ def parse_candidaturas(path: Path) -> List[CandidaturaRecord]:
 
 def parse_candidatos(path: Path) -> List[CandidatoRecord]:
     """
-    Parsea el fichero 0402aamm.dat de relación de candidatos.
+    Parses the 0402aamm.dat relation of candidates file.
     """
     records: list[CandidatoRecord] = []
     for line in _read_lines(path):
@@ -108,7 +108,7 @@ def parse_candidatos(path: Path) -> List[CandidatoRecord]:
 
 def parse_ambitos_superiores(path: Path) -> List[AmbitoSuperiorRecord]:
     """
-    Parsea el fichero 0702aamm.dat con datos comunes de ámbitos superiores al municipio.
+    Parses the 0702aamm.dat file with common data for scopes higher than municipality.
     """
     records: list[AmbitoSuperiorRecord] = []
     for line in _read_lines(path):
@@ -146,7 +146,7 @@ def parse_resultados_ambito_candidatura(
     path: Path,
 ) -> List[ResultadoAmbitoCandidaturaRecord]:
     """
-    Parsea el fichero 0802aamm.dat con resultados por candidatura en ámbito superior.
+    Parses the 0802aamm.dat file with results by candidacy in higher scope.
     """
     records: list[ResultadoAmbitoCandidaturaRecord] = []
     for line in _read_lines(path):
@@ -169,8 +169,8 @@ def parse_resultados_ambito_candidatura(
 
 def parse_mesas(path: Path) -> List[MesaRecord]:
     """
-    Parsea el fichero 0902aamm.dat con datos comunes de mesas.
-    Solo usa los códigos de identificación de mesa.
+    Parses the 0902aamm.dat file with common table data.
+    Only uses table identification codes.
     """
     records: list[MesaRecord] = []
     for line in _read_lines(path):
@@ -188,7 +188,7 @@ def parse_mesas(path: Path) -> List[MesaRecord]:
 
 def parse_mesas_candidaturas(path: Path) -> List[MesaVotoRecord]:
     """
-    Parsea el fichero 1002aamm.dat con votos por candidatura en cada mesa.
+    Parses the 1002aamm.dat file with votes by candidacy in each polling station.
     """
     records: list[MesaVotoRecord] = []
     for line in _read_lines(path):
@@ -209,12 +209,12 @@ def parse_mesas_candidaturas(path: Path) -> List[MesaVotoRecord]:
 
 def parse_datos_municipios(path: Path) -> List[dict[str, str]]:
     """
-    Parsea el fichero 0502aamm.dat (datos de municipios).
-    Devuelve lista de dicts con keys: cod_provincia, cod_municipio, nombre.
+    Parses the 0502aamm.dat file (municipality data).
+    Returns list of dicts with keys: cod_provincia, cod_municipio, nombre.
     """
     records: list[dict[str, str]] = []
     for line in _read_lines(path):
-        # Basado en análisis debug:
+        # Based on debug analysis:
         # prov: 12-13 (1-based)
         # muni: 14-16 (1-based)
         # nombre: 19-end (approx)
