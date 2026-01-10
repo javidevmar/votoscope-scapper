@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Dict, Iterable, List, Tuple
+from typing import Iterable, List, Tuple
 
-from ..config.constants import CODIGO_TOTAL
-from ..domain.models import (
+from ...domain.models import (
     AmbitoSuperiorRecord,
     CandidatoRecord,
     CandidaturaRecord,
     MesaRecord,
     MesaVotoRecord,
-    GoldHemicicloRow,
     ResultadoAmbitoCandidaturaRecord,
     SilverAmbitoRow,
     SilverBundle,
@@ -19,7 +17,7 @@ from ..domain.models import (
     SilverElectionRow,
     SilverResultadoRow,
 )
-
+from ...config.constants import CODIGO_TOTAL
 
 def build_silver_bundle(
     descripcion: str,
@@ -116,87 +114,6 @@ def build_silver_bundle(
         ambitos=ambitos_silver,
         resultados=resultados_silver,
     )
-
-
-def _ambito_key(row: SilverAmbitoRow) -> Tuple[int, str, str, str]:
-    return row.vuelta, row.cod_ccaa, row.cod_provincia, row.cod_distrito
-
-
-def build_gold_hemiciclo_rows(
-    ambitos: Iterable[SilverAmbitoRow],
-    resultados: Iterable[SilverResultadoRow],
-    candidaturas: Iterable[SilverCandidaturaRow],
-) -> List[GoldHemicicloRow]:
-    """
-    Generates gold hemiciclo table records (national and provincial).
-    """
-    ambito_map: Dict[tuple[int, str, str, str], SilverAmbitoRow] = {
-        _ambito_key(amb): amb for amb in ambitos
-    }
-    candidatura_map: Dict[str, SilverCandidaturaRow] = {
-        c.codigo: c for c in candidaturas
-    }
-    rows: list[GoldHemicicloRow] = []
-
-    resultados_por_clave: Dict[tuple[int, str, str, str], list[SilverResultadoRow]] = {}
-    for res in resultados:
-        key = (res.vuelta, res.cod_ccaa, res.cod_provincia, res.cod_distrito)
-        resultados_por_clave.setdefault(key, []).append(res)
-
-    # National hemicycle
-    nacional_key = (1, CODIGO_TOTAL, CODIGO_TOTAL, "9")
-    if nacional_key in ambito_map:
-        ambito_nacional = ambito_map[nacional_key]
-        total_votos_validos = ambito_nacional.votos_candidaturas or 0
-        for res in resultados_por_clave.get(nacional_key, []):
-            candidatura = candidatura_map.get(res.cod_candidatura)
-            if not candidatura:
-                continue
-            votos = res.votos or 0
-            escanos = res.candidatos or 0
-            porcentaje = (
-                votos / total_votos_validos if total_votos_validos and votos is not None else None
-            )
-            rows.append(
-                GoldHemicicloRow(
-                    nivel_ambito="nacional",
-                    cod_provincia=None,
-                    nombre_ambito=ambito_nacional.nombre_ambito,
-                    cod_candidatura=res.cod_candidatura,
-                    votos=votos,
-                    escanos=escanos,
-                    porcentaje_voto=porcentaje,
-                )
-            )
-
-    # Provincial hemicycle (province totals cod_distrito=9)
-    for ambito in ambito_map.values():
-        if ambito.cod_provincia == CODIGO_TOTAL or ambito.cod_distrito != "9":
-            continue
-        total_votos_validos = ambito.votos_candidaturas or 0
-        key = _ambito_key(ambito)
-        for res in resultados_por_clave.get(key, []):
-            candidatura = candidatura_map.get(res.cod_candidatura)
-            if not candidatura:
-                continue
-            votos = res.votos or 0
-            escanos = res.candidatos or 0
-            porcentaje = (
-                votos / total_votos_validos if total_votos_validos and votos is not None else None
-            )
-            rows.append(
-                GoldHemicicloRow(
-                    nivel_ambito="provincia",
-                    cod_provincia=ambito.cod_provincia,
-                    nombre_ambito=ambito.nombre_ambito,
-                    cod_candidatura=res.cod_candidatura,
-                    votos=votos,
-                    escanos=escanos,
-                    porcentaje_voto=porcentaje,
-                )
-            )
-
-    return rows
 
 
 def build_mesas(
