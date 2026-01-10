@@ -4,8 +4,8 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, List
 
-from ..config.constants import ENCODING_INFOELECTORAL
-from ..domain.models import (
+from ...config.constants import ENCODING_INFOELECTORAL
+from ...domain.models import (
     AmbitoSuperiorRecord,
     CandidatoRecord,
     CandidaturaRecord,
