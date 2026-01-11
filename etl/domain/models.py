@@ -146,6 +146,7 @@ class SilverAmbitoRow:
     vuelta: int
     cod_ccaa: str
     cod_provincia: str
+    # cod_municipio: str TODO: fix municipio results
     cod_distrito: str
     nombre_ambito: str
     poblacion_derecho: Optional[int]
@@ -178,7 +179,8 @@ class SilverResultadoRow:
 
 @dataclass(slots=True)
 class GoldHemicicloRow:
-    nivel_ambito: str  # nacional | provincia
+    nivel_ambito: str
+    cod_ccaa: Optional[str] # nacional | provincia | regional
     cod_provincia: Optional[str]
     nombre_ambito: str
     cod_candidatura: str

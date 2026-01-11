@@ -1,5 +1,5 @@
-from etl_congreso.domain.models import ElectionConfig
-from etl_congreso.config.elections import get_election_config
+from .domain.models import ElectionConfig
+from  .config.elections import get_election_config
 
 import argparse
 import logging

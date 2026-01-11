@@ -175,7 +175,7 @@ def _upsert_gold(
             continue
             
         sql = """
-            INSERT INTO gold.congreso_hemiciclo (
+            INSERT INTO gold.congress_info (
                 eleccion_id, partido_id,
                 nivel_ambito, cod_provincia, nombre_ambito,
                 escanos, votos, porcentaje_voto
